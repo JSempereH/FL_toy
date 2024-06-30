@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from typing import List, Tuple
 import numpy as np
 
+torch.manual_seed(42)
+np.random.seed(42)
+
 
 class bcolors:
     HEADER = "\033[95m"
