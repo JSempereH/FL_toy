@@ -6,7 +6,7 @@ from typing import List, Tuple
 from utils import save_train_metrics_to_csv, save_test_metrics_to_csv
 
 # TODO: This must come from the Hydra's config
-DEVICE = torch.device("cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 CRITERION = torch.nn.CrossEntropyLoss()
 OPTIMIZER = "ADAM"
 
@@ -25,6 +25,28 @@ class Net(nn.Module):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 16 * 5 * 5)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+
+class Net_MNIST(nn.Module):
+    def __init__(self) -> None:
+        super(Net_MNIST, self).__init__()
+        # Change the input channels from 3 to 1 for grayscale images
+        self.conv1 = nn.Conv2d(1, 6, 5)  
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        # Adjust the input size of the first fully connected layer
+        self.fc1 = nn.Linear(16 * 4 * 4, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        # Flatten the tensor for the fully connected layer
+        x = x.view(-1, 16 * 4 * 4)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -53,6 +75,7 @@ def train(net, trainloader, epochs: int, server_name: str):
     optimizer = select_optimizer(net=net)
 
     pbar = tqdm(range(epochs), desc=f"Training {server_name}:", colour="green")
+    net.to(DEVICE)
     net.train()
     for epoch in pbar:
         correct, total, epoch_loss = 0, 0, 0.0
@@ -103,6 +126,7 @@ def train_fedprox(
     pbar = tqdm(range(epochs), desc=f"Training {server_name}:", colour="green")
 
     global_weight_collector = list(global_model.to(DEVICE).parameters())
+    net.to(DEVICE)
     net.train()
     for epoch in pbar:
         correct, total, epoch_loss = 0, 0, 0.0
@@ -143,6 +167,7 @@ def train_scaffold(net, trainloader, epochs: int, server_name: str, global_model
         model_params = net.state_dict()
 
         net.train()
+        net.to(DEVICE)
         pbar = tqdm(range(epochs), desc=f"Training {server_name}:", colour="green")
         for epoch in pbar:
             correct, total, epoch_loss = 0, 0, 0.0
@@ -207,6 +232,7 @@ def test(net, testloader, server_name: str) -> Tuple[float, float]:
     """
     criterion = torch.nn.CrossEntropyLoss()
     correct, total, loss = 0, 0, 0.0
+    net.to(DEVICE)
     net.eval()
     with torch.no_grad():
         for images, labels in tqdm(testloader, desc=f"Test", colour="yellow"):

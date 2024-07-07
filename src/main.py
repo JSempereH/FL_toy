@@ -1,6 +1,6 @@
 from datasets import *
 from server import Client, Central_Server
-from models import Net
+from models import Net, Net_MNIST
 from utils import (
     are_models_equal,
     print_block,
@@ -29,13 +29,19 @@ def main(cfg: DictConfig) -> None:
     train_dl, val_dl, test_dl = get_dataloaders(cfg)
 
     list_clients = []
-    global_net = Net()
+    if cfg.dataset == "MNIST":
+        global_net = Net_MNIST()
+    else:
+        global_net = Net()
     central_server = Central_Server(global_net, test_dl)
     for i in range(cfg.num_clients):
         if cfg.same_initial_weights:
             client_net = copy.deepcopy(global_net)  # All clients same initial weights
         else:
-            client_net = Net()  # Each client has different initial weights
+            if cfg.dataset == "MNIST":
+                client_net = Net_MNIST()
+            else:
+                client_net = Net()  # Each client has different initial weights
         client = Client(
             client_name=f"Client {i+1}",
             net=client_net,
@@ -61,26 +67,6 @@ def main(cfg: DictConfig) -> None:
                 client.get_parameters(), strategy, global_net=central_server.global_net
             )
 
-        # if isinstance(strategy, FedNova):
-        #     strategy.aggregation(
-        #         global_model=central_server.global_net,
-        #         list_local_models=[client.net for client in list_clients],
-        #         list_len_datasets=[
-        #             client.local_train_dataloader.dataset.__len__()
-        #             for client in list_clients
-        #         ],
-        #         local_steps=list_of_epochs
-        #     )
-        
-        # else: # FedAvg, FedProx
-        #     strategy.aggregation(
-        #         global_model=central_server.global_net,
-        #         list_local_models=[client.net for client in list_clients],
-        #         list_len_datasets=[
-        #             client.local_train_dataloader.dataset.__len__()
-        #             for client in list_clients
-        #         ],
-        #     )
         central_server.aggregate(list_clients, strategy, list_of_epochs)
 
         for client in list_clients:

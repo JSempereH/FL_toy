@@ -62,7 +62,7 @@ def download_datasets(dataset_name: str) -> Tuple[Dataset, Dataset]:
 
     else:
         raise ValueError(
-            "{bcolors.FAIL}Dataset not implemented! Check the name.{bcolors.ENDC}"
+            "Dataset not implemented! Check the name."
         )
 
     return trainset, testset
